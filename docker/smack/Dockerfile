@@ -16,10 +16,11 @@ WORKDIR /home/smack
 
 ENV INSTALL_Z3=0
 ENV TEST_SMACK=0
+ENV INSTALL_RUST=0
 
 RUN git clone --no-checkout https://github.com/smackers/smack.git smack \
   && cd smack \
-  && git checkout rvt-test
+  && git checkout develop
 
 RUN cd smack && bin/build.sh --prefix /home/smack/smack-install
 
@@ -33,7 +34,17 @@ RUN cd smack && bin/build.sh --prefix /home/smack/smack-install
 #     cp /etc/sudoers /etc/sudoers.bak && \
 #     echo 'user  ALL=(root) NOPASSWD: ALL' >> /etc/sudoers
 
-# USER user
+USER ${USERNAME}
+
+ENV INSTALL_Z3=0
+ENV TEST_SMACK=0
+ENV INSTALL_RUST=1
+ENV INSTALL_DEPENDENCIES=0
+ENV INSTALL_BOOGIE=0
+ENV INSTALL_CORRAL=0
+ENV BUILD_SMACK=1
+
+RUN cd smack && bin/build.sh 
 
 # # Add the current directory to `/home/user/smack`
 # ADD --chown=user . $SMACKDIR
