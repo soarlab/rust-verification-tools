@@ -16,8 +16,7 @@
 ///
 /// Indicating that the original version suffers from a path explosion and generates
 /// more tests, executes more instructions and explores more paths than the merged version.
-
-use verification_annotations as verifier;
+use verification_annotations::prelude::*;
 
 fn main() {
     println!("Hello, world!");
@@ -40,7 +39,7 @@ fn test_original() {
 
     // Set each element of array to a symbolic value
     for i in &mut a {
-        *i = verifier::AbstractValue::abstract_value();
+        *i = u32::abstract_value();
     }
 
     // A loop containing two branches - this will cause a performance problem
@@ -69,13 +68,13 @@ fn test_merged() {
 
     // Set each element of array to a symbolic value
     for i in 0..a.len() {
-        a[i] = verifier::AbstractValue::abstract_value();
+        a[i] = u32::abstract_value();
     }
 
     // A loop containing two branches - this will cause a performance problem
     // for conventional symbolic execution.
     for x in a.iter() {
-        verifier::coherent!{{
+        verifier::coherent! {{
             verifier::assume((5..10).contains(x) || (15..20).contains(x))
         }}
     }

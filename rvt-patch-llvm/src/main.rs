@@ -8,6 +8,7 @@
 
 use log::info;
 use regex::Regex;
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 use structopt::StructOpt;
@@ -45,15 +46,19 @@ struct Opt {
     output: PathBuf,
 
     /// Eliminate feature tests
-    #[structopt(short, long)]
+    #[structopt(long)]
     features: bool,
 
     /// Call initializers from main
-    #[structopt(short, long)]
+    #[structopt(long)]
     initializers: bool,
 
+    /// Substitute function calls for SIMD intrinsic operations
+    #[structopt(long)]
+    intrinsics: bool,
+
     /// SeaHorn preparation (conflicts with --initializers)
-    #[structopt(short, long, conflicts_with = "initializers")]
+    #[structopt(long, conflicts_with = "initializers")]
     seahorn: bool,
 
     /// Increase message verbosity
@@ -99,6 +104,38 @@ fn main() {
 
     if opt.initializers {
         handle_initializers(&context, &mut module);
+    }
+
+    if opt.intrinsics {
+        // intrinsics
+        fn simd_intrinsic(name: &str) -> bool {
+            name.starts_with("llvm.x86") || name.starts_with("llvm.experimental.vector")
+        }
+        let is = get_function(&module, simd_intrinsic);
+
+        // simd_emulation functions
+        fn simd_emulation(name: &str) -> bool {
+            name.starts_with("llvm_x86") || name.starts_with("llvm_experimental.vector")
+        }
+        let rs = get_function(&module, simd_emulation);
+        let rs: HashMap<&str, FunctionValue> = rs
+            .iter()
+            .filter_map(|f| f.get_name().to_str().ok().map(|nm| (nm, *f)))
+            .collect();
+
+        info!("Found simd_emulation functions {:?}", rs.keys());
+
+        for i in is {
+            let i_name = i.get_name();
+            let r_name = i_name.to_str().expect("valid UTF8 symbol name");
+            let r_name: String = r_name.replace(".", "_");
+            if let Some(r) = rs.get(r_name.as_str()) {
+                info!("Replacing intrinsic {:?} with {}", i_name, r_name);
+                i.replace_all_uses_with(*r);
+            } else {
+                info!("Did not find replacement for {:?}", i_name);
+            }
+        }
     }
 
     if opt.seahorn {
@@ -286,8 +323,7 @@ fn insert_call_at_head<'a>(
 /// Apply Rust mangling rule to a function name like 'foo::bar'.
 /// Does not insert a unique hash at the end or the final 'E' character.
 fn rust_mangle(rust_name: &str) -> String {
-    let mangled =
-        &rust_name
+    let mangled = &rust_name
         .split("::")
         .into_iter()
         .map(|x| format!("{}{}", x.len(), x))
@@ -349,7 +385,10 @@ fn get_function_by_regex<'ctx>(module: &'ctx Module, re: &Regex) -> Vec<Function
 }
 
 /// Find a function whose name matches a Rust-mangled name
-fn get_function_by_unmangled_name<'ctx>(module: &'ctx Module, prefix: &str) -> Vec<FunctionValue<'ctx>> {
+fn get_function_by_unmangled_name<'ctx>(
+    module: &'ctx Module,
+    prefix: &str,
+) -> Vec<FunctionValue<'ctx>> {
     let prefix = format!("{}17h", rust_mangle(prefix));
     get_function(module, |name| name.starts_with(&prefix))
 }
@@ -362,11 +401,7 @@ where
     let mut funs = vec![];
     let mut op_fun = module.get_first_function();
     while let Some(fun) = op_fun {
-        if fun.get_name()
-            .to_str()
-            .map(&is_match)
-            .unwrap_or(false)
-        {
+        if fun.get_name().to_str().map(&is_match).unwrap_or(false) {
             funs.push(fun);
         }
         op_fun = fun.get_next_function();
@@ -381,12 +416,20 @@ fn handle_panic(context: &Context, module: &Module) {
 
         // Delete the body of panic functions, and replace it with a call to
         // `spanic`.
-        
+
         // Note that std::panicking::begin_panic can have multiple instances
         // with different hash suffix, I'm not sure why.
-        for fv in module.get_function("rust_begin_unwind").into_iter()
-            .chain(get_function_by_unmangled_name(&module, "std::panicking::begin_panic"))
-            .chain(get_function_by_unmangled_name(&module, "core::panicking::panic"))
+        for fv in module
+            .get_function("rust_begin_unwind")
+            .into_iter()
+            .chain(get_function_by_unmangled_name(
+                &module,
+                "std::panicking::begin_panic",
+            ))
+            .chain(get_function_by_unmangled_name(
+                &module,
+                "core::panicking::panic",
+            ))
         {
             delete_body(&fv);
             let basic_block = context.append_basic_block(fv, "entry");
@@ -394,9 +437,10 @@ fn handle_panic(context: &Context, module: &Module) {
             builder.build_call(spanic, &[], "call");
             builder.build_return(None);
 
-            info!("Replaced the body of '{}' with a call to '{}'.",
-                  fv.get_name().to_string_lossy(),
-                  spanic.get_name().to_string_lossy(),
+            info!(
+                "Replaced the body of '{}' with a call to '{}'.",
+                fv.get_name().to_string_lossy(),
+                spanic.get_name().to_string_lossy(),
             );
         }
     }

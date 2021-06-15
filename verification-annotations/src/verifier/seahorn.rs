@@ -10,12 +10,11 @@
 // FFI wrapper for SeaHorn symbolic execution tool
 /////////////////////////////////////////////////////////////////
 
-use std::default::Default;
 use std::convert::TryInto;
 
 pub use crate::traits::*;
 
-extern {
+extern "C" {
     fn __VERIFIER_error() -> !;
     fn __VERIFIER_assume(pred: i32);
 }
@@ -30,14 +29,18 @@ fn spanic() -> ! {
 /// In almost all circumstances, `report_error` should
 /// be used instead because it generates an error message.
 pub fn abort() -> ! {
-    unsafe { __VERIFIER_error(); }
+    unsafe {
+        __VERIFIER_error();
+    }
 }
 
 /// Assume that condition `cond` is true
 ///
 /// Any paths found must satisfy this assumption.
 pub fn assume(pred: bool) {
-    unsafe { __VERIFIER_assume(pred as i32); }
+    unsafe {
+        __VERIFIER_assume(pred as i32);
+    }
 }
 
 /// Reject the current execution path with a verification success.
@@ -80,13 +83,15 @@ pub fn expect_raw(msg: &str) {
 pub fn expect(msg: Option<&str>) {
     match msg {
         None => eprintln!("VERIFIER_EXPECT: should_panic"),
-        Some(msg) => eprintln!("VERIFIER_EXPECT: should_panic(expected = \"{}\")", msg)
+        Some(msg) => eprintln!("VERIFIER_EXPECT: should_panic(expected = \"{}\")", msg),
     }
 }
 
 macro_rules! make_nondet {
     ($typ:ty, $ext:ident, $v:expr) => {
-        extern { fn $ext() -> $typ; }
+        extern "C" {
+            fn $ext() -> $typ;
+        }
         impl VerifierNonDet for $typ {
             fn verifier_nondet(self) -> Self {
                 unsafe { $ext() }
@@ -116,7 +121,9 @@ macro_rules! make_nondet_ne_bytes {
             fn verifier_nondet(self) -> Self {
                 let mut bytes = vec![0u8; std::mem::size_of::<$typ>()];
                 for i in 0..bytes.len() {
-                    unsafe { bytes[i] = __VERIFIER_nondet_u8(); }
+                    unsafe {
+                        bytes[i] = __VERIFIER_nondet_u8();
+                    }
                 }
                 Self::from_ne_bytes(bytes[..].try_into().unwrap())
             }
@@ -127,88 +134,12 @@ macro_rules! make_nondet_ne_bytes {
 make_nondet_ne_bytes!(u128);
 make_nondet_ne_bytes!(i128);
 
-
 impl VerifierNonDet for bool {
     fn verifier_nondet(self) -> Self {
         let c = u8::verifier_nondet(0u8);
         assume(c == 0 || c == 1);
         c == 1
     }
-}
-
-impl <T: VerifierNonDet + Default> AbstractValue for T {
-    fn abstract_value() -> Self {
-        Self::verifier_nondet(Self::default())
-    }
-}
-
-impl <T: VerifierNonDet + Default> Symbolic for T {
-    fn symbolic(_desc: &'static str) -> Self {
-        Self::verifier_nondet(Self::default())
-    }
-}
-
-#[macro_export]
-macro_rules! assert {
-    ($cond:expr,) => { $crate::assert!($cond) };
-    ($cond:expr) => { $crate::assert!($cond, "assertion failed: {}", stringify!($cond)) };
-    ($cond:expr, $($arg:tt)+) => {{
-        if ! $cond {
-            let message = format!($($arg)+);
-            eprintln!("VERIFIER: panicked at '{}', {}:{}:{}",
-                      message,
-                      std::file!(), std::line!(), std::column!());
-            $crate::abort();
-        }
-    }}
-}
-
-#[macro_export]
-macro_rules! assert_eq {
-    ($left:expr, $right:expr) => {{
-        let left = $left;
-        let right = $right;
-        $crate::assert!(
-            left == right,
-            "assertion failed: `(left == right)` \
-             \n  left: `{:?}`,\n right: `{:?}`",
-            left,
-            right)
-    }};
-    ($left:expr, $right:expr, $fmt:tt $($arg:tt)*) => {{
-        let left = $left;
-        let right = $right;
-        $crate::assert!(
-            left == right,
-            concat!(
-                "assertion failed: `(left == right)` \
-                 \n  left: `{:?}`, \n right: `{:?}`: ", $fmt),
-            left, right $($arg)*);
-    }};
-}
-
-#[macro_export]
-macro_rules! assert_ne {
-    ($left:expr, $right:expr) => {{
-        let left = $left;
-        let right = $right;
-        $crate::assert!(
-            left != right,
-            "assertion failed: `(left != right)` \
-             \n  left: `{:?}`,\n right: `{:?}`",
-            left,
-            right)
-    }};
-    ($left:expr, $right:expr, $fmt:tt $($arg:tt)*) => {{
-        let left = $left;
-        let right = $right;
-        $crate::assert!(
-            left != right,
-            concat!(
-                "assertion failed: `(left != right)` \
-                 \n  left: `{:?}`, \n right: `{:?}`: ", $fmt),
-            left, right $($arg)*);
-    }};
 }
 
 /////////////////////////////////////////////////////////////////
