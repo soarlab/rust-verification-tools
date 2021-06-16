@@ -27,6 +27,11 @@ mod seahorn;
 #[cfg(feature = "verifier-seahorn")]
 pub use seahorn::*;
 
+#[cfg(feature = "verifier-smack")]
+mod smack;
+#[cfg(feature = "verifier-smack")]
+pub use smack::*;
+
 /// Allocate a symbolic vector of bytes
 pub fn verifier_nondet_bytes(n: usize) -> Vec<u8> {
     let mut v: Vec<u8> = Vec::with_capacity(n);
