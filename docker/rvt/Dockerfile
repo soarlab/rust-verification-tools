@@ -31,6 +31,10 @@ RUN echo Installing ${RUSTC_VERSION}
 RUN rustup toolchain install ${RUSTC_VERSION} --profile=minimal
 RUN rustup default ${RUSTC_VERSION}
 
+# HACK: Install smack toolchain
+RUN rustup toolchain install nightly-2021-03-01
+RUN cargo install rustfilt
+
 # Prebuild all the tools and libraries
 # Note that we can't mount RVT_DIR while we do this - so we have to make
 # a copy and build from there. (Which is pretty hacky)
