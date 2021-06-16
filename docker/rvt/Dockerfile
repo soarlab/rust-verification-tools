@@ -1,4 +1,4 @@
-FROM rvt_seahorn:latest
+FROM rvt_smack:latest
 
 # Placeholder args that are expected to be passed in at image build time.
 # See https://code.visualstudio.com/docs/remote/containers-advanced#_creating-a-nonroot-user
@@ -49,5 +49,5 @@ ENV PATH="${PATH}:${RVT_DIR}/scripts"
 ENV PATH="${PATH}:${RVT_DIR}/scripts/bin"
 
 # Create a bashrc file
-RUN echo "export PATH=\"${PATH}\"" >> ${USER_HOME}/.bashrc \
+RUN echo "export PATH=\"${PATH}\":\${PATH}" >> ${USER_HOME}/.bashrc \
   && echo "ulimit -c0" >> ${USER_HOME}/.bashrc

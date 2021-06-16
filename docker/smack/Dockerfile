@@ -1,7 +1,6 @@
 FROM rvt_seahorn:latest
 
 USER root
-
 RUN apt-get update && \
       apt-get -y install \
       software-properties-common \
@@ -9,51 +8,22 @@ RUN apt-get update && \
       sudo \
       g++
 
-RUN mkdir /home/smack
-WORKDIR /home/smack
+# get repo
+USER ${USERNAME}
+WORKDIR ${USER_HOME}
 
-# ARG SMACK_VERSION
+ENV SMACK_DIR=${USER_HOME}/smack
+
+RUN git clone --no-checkout https://github.com/smackers/smack.git ${SMACK_DIR} \
+  && cd ${SMACK_DIR} \
+  && git checkout develop
+
+# build and install smack
 
 ENV INSTALL_Z3=0
 ENV TEST_SMACK=0
 ENV INSTALL_RUST=0
 
-RUN git clone --no-checkout https://github.com/smackers/smack.git smack \
-  && cd smack \
-  && git checkout develop
+RUN cd ${SMACK_DIR} && bin/build.sh --prefix ${SMACK_DIR}/smack-install
 
-RUN cd smack && bin/build.sh --prefix /home/smack/smack-install
-
-
-
-# Borrowed from JFS
-# Create `user` user for container with password `user`.  and give it
-# password-less sudo access
-# RUN useradd -m user && \
-#     echo user:user | chpasswd && \
-#     cp /etc/sudoers /etc/sudoers.bak && \
-#     echo 'user  ALL=(root) NOPASSWD: ALL' >> /etc/sudoers
-
-USER ${USERNAME}
-
-ENV INSTALL_Z3=0
-ENV TEST_SMACK=0
-ENV INSTALL_RUST=1
-ENV INSTALL_DEPENDENCIES=0
-ENV INSTALL_BOOGIE=0
-ENV INSTALL_CORRAL=0
-ENV BUILD_SMACK=1
-
-RUN cd smack && bin/build.sh 
-
-# # Add the current directory to `/home/user/smack`
-# ADD --chown=user . $SMACKDIR
-
-# # Set the work directory
-# WORKDIR $SMACKDIR
-
-# # Build SMACK
-# RUN bin/build.sh
-
-# # Add envinronment
-# RUN echo "source /home/user/smack.environment" >> ~/.bashrc
+RUN echo "source ${USER_HOME}/smack.environment" >> ${USER_HOME}/.bashrc
