@@ -324,12 +324,12 @@ fn process_command_line() -> CVResult<Opt> {
             }
             Backend::Seahorn
         }
-	Some(Backend::Smack) => {
-	    if !smack::check_install() {
-		Err("SMACK is not installed")?;
-	    }
-	    Backend::Smack
-	}
+        Some(Backend::Smack) => {
+            if !smack::check_install() {
+                Err("SMACK is not installed")?;
+            }
+            Backend::Smack
+        }
         None => {
             // If the user did not specify a backend, use the first one that we find.
             let backend = if klee::check_install() {
@@ -595,7 +595,7 @@ fn verifier_run(opt: &Opt, bcfile: &Path, name: &str, entry: &str) -> Status {
     let status = match opt.backend {
         Backend::Klee => klee::verify(&opt, &name, &entry, &bcfile),
         Backend::Seahorn => seahorn::verify(&opt, &name, &entry, &bcfile),
-	Backend::Smack => smack::verify(&opt, &name, &entry, &bcfile),
+        Backend::Smack => smack::verify(&opt, &name, &entry, &bcfile),
         Backend::Proptest => unreachable!(),
     }
     .unwrap_or_else(|err| {
