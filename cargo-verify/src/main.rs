@@ -41,6 +41,7 @@ mod klee;
 mod proptest;
 mod run_tools;
 mod seahorn;
+mod smack;
 
 use run_tools::*;
 
@@ -184,6 +185,7 @@ arg_enum! {
         Proptest,
         Klee,
         Seahorn,
+        Smack,
     }
 }
 
@@ -322,6 +324,12 @@ fn process_command_line() -> CVResult<Opt> {
             }
             Backend::Seahorn
         }
+	Some(Backend::Smack) => {
+	    if !smack::check_install() {
+		Err("SMACK is not installed")?;
+	    }
+	    Backend::Smack
+	}
         None => {
             // If the user did not specify a backend, use the first one that we find.
             let backend = if klee::check_install() {
@@ -361,6 +369,16 @@ fn process_command_line() -> CVResult<Opt> {
             }
 
             opt.features.push(String::from("verifier-seahorn"));
+        }
+        Backend::Smack => {
+            if !opt.args.is_empty() {
+                Err("The SMACK backend does not support passing arguments yet.")?;
+            }
+            if opt.replay != 0 {
+                Err("The SMACK backend does not support '--replay' yet.")?;
+            }
+
+            opt.features.push(String::from("verifier-smack"));
         }
         Backend::Klee => {
             opt.features.push(String::from("verifier-klee"));
@@ -577,6 +595,7 @@ fn verifier_run(opt: &Opt, bcfile: &Path, name: &str, entry: &str) -> Status {
     let status = match opt.backend {
         Backend::Klee => klee::verify(&opt, &name, &entry, &bcfile),
         Backend::Seahorn => seahorn::verify(&opt, &name, &entry, &bcfile),
+	Backend::Smack => smack::verify(&opt, &name, &entry, &bcfile),
         Backend::Proptest => unreachable!(),
     }
     .unwrap_or_else(|err| {
