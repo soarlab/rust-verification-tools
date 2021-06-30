@@ -13,12 +13,16 @@
 use std::convert::TryInto;
 
 pub use crate::traits::*;
+use std::alloc::Layout;
 
 extern "C" {
     fn __VERIFIER_assert(pred: i32) -> !;
     fn __VERIFIER_assume(pred: i32);
+    pub fn malloc(size: usize) -> *mut u8;
+    pub fn free(ptr: *mut u8);
+    fn memset(ptr: *mut u8, ch: i32, count: usize);
+    fn realloc(ptr: *mut u8, new_size: usize) -> *mut u8;
 }
-
 #[no_mangle]
 fn spanic() -> ! {
     abort();
@@ -140,6 +144,59 @@ impl VerifierNonDet for bool {
         assume(c == 0 || c == 1);
         c == 1
     }
+}
+
+/* Rust memory function models. */
+#[no_mangle]
+pub unsafe fn __smack_rust_std_alloc(layout: Layout) -> *mut u8 {
+    __smack_rust_prim_alloc(layout.size(), layout.align())
+}
+
+#[no_mangle]
+pub unsafe fn __smack_rust_std_alloc_zeroed(layout: Layout) -> *mut u8 {
+    __smack_rust_prim_alloc(layout.size(), layout.align())
+}
+
+#[no_mangle]
+pub unsafe fn __smack_rust_std_dealloc(ptr: *mut u8, layout: Layout) {
+    __smack_rust_prim_dealloc(ptr, layout.size(), layout.align())
+}
+
+#[no_mangle]
+pub unsafe fn __smack_rust_std_realloc(ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+    __smack_rust_prim_realloc(ptr, layout.size(), layout.align(), new_size)
+}
+
+#[no_mangle]
+pub unsafe fn __smack_rust_prim_alloc(size: usize, _align: usize) -> *mut u8 {
+    // Currently ignores alignment
+    malloc(size)
+}
+
+#[no_mangle]
+pub unsafe fn __smack_rust_prim_alloc_zeroed(size: usize, _align: usize) -> *mut u8 {
+    // Currently ignores alignment
+    let result = malloc(size);
+    memset(result, 0, size);
+    result
+}
+
+#[no_mangle]
+pub unsafe fn __smack_rust_prim_dealloc(ptr: *mut u8, _size: usize, _align: usize) {
+    // Currently ignoring size and alignment
+    free(ptr);
+}
+
+#[no_mangle]
+pub unsafe fn __smack_rust_prim_realloc(
+    ptr: *mut u8,
+    _old_size: usize,
+    _align: usize,
+    new_size: usize,
+) -> *mut u8 {
+    // Needs proper implementation of realloc
+    // Ignores size and alignment
+    realloc(ptr, new_size)
 }
 
 /////////////////////////////////////////////////////////////////

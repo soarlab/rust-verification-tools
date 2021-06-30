@@ -675,6 +675,13 @@ fn build(opt: &Opt, package: &str, target: &str) -> CVResult<PathBuf> {
         bc_file = new_bc_file;
     }
 
+    if opt.backend == Backend::Smack {
+        info_at!(&opt, Verbosity::Major, "  Patching LLVM file for Smack");
+        let new_bc_file = add_pre_ext(&bc_file, "patch-smack");
+        patch_llvm(&opt, &["--smack"], &bc_file, &new_bc_file)?;
+        bc_file = new_bc_file;
+    }
+
     // todo: This is probably useful with all verifiers - but
     // making it KLEE-only until we have a chance to test it.
     if opt.backend == Backend::Klee {

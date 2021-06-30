@@ -98,7 +98,7 @@ fn run(opt: &Opt, name: &str, entry: &str, bcfile: &Path, out_dir: &Path) -> CVR
     // } else {
     //     cmd.args(user_flags);
     // }
-    cmd.arg("--verifier=boogie").args(user_flags);
+    cmd.arg("--verifier=boogie").args(user_flags).arg(bcfile);
     let (stdout, stderr, _) = cmd.output_info_ignore_exit(&opt, Verbosity::Major)?;
 
     // We scan stderr for:
