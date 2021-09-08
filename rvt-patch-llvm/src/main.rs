@@ -158,6 +158,8 @@ fn main() {
     }
 
     if opt.smack {
+        handle_main(&module);
+
         replace_def_with_dec(
             &module,
             &Regex::new(r"^__VERIFIER_(assume|assert)$").unwrap(),

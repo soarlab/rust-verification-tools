@@ -98,8 +98,11 @@ fn run(opt: &Opt, name: &str, entry: &str, bcfile: &Path, out_dir: &Path) -> CVR
     // } else {
     //     cmd.args(user_flags);
     // }
-    cmd.arg("--verifier=boogie").args(user_flags).arg(bcfile);
+    cmd.arg("--verifier=boogie").args(user_flags).arg(String::from("--entry-points=") + entry).arg(bcfile);
     let (stdout, stderr, _) = cmd.output_info_ignore_exit(&opt, Verbosity::Major)?;
+    for l in stdout.lines() {
+	println!("{}", l);
+    }
 
     // We scan stderr for:
     // 1. Indications of the expected output (eg from #[should_panic])
@@ -110,6 +113,7 @@ fn run(opt: &Opt, name: &str, entry: &str, bcfile: &Path, out_dir: &Path) -> CVR
     // Scan for expectation message
     let mut expect = None;
     for l in stderr.lines() {
+	println!("{}",l);
         if l == "VERIFIER_EXPECT: should_panic" {
             expect = Some("");
         } else if let Some(e) = l
