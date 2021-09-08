@@ -1,4 +1,5 @@
-FROM rvt_seahorn:latest
+ARG FROM_IMAGE_FOR_SMACK
+FROM ${FROM_IMAGE_FOR_SMACK}
 
 USER root
 RUN apt-get update && \
