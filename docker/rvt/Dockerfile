@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 FROM rvt_smack:latest
+=======
+ARG FROM_IMAGE_FOR_RVT
+FROM ${FROM_IMAGE_FOR_RVT}
+>>>>>>> 6296357c141c9378613a357a0042fc9413ce2093
 
 # Placeholder args that are expected to be passed in at image build time.
 # See https://code.visualstudio.com/docs/remote/containers-advanced#_creating-a-nonroot-user
