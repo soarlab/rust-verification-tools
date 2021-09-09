@@ -55,7 +55,10 @@ fn run(opt: &Opt, name: &str, entry: &str, bcfile: &Path, out_dir: &Path) -> CVR
         .map(|flag| backends_common::format_flag(&flag, &entry, &bcfile, &out_dir))
         .collect::<Result<_, _>>()?;
 
-    cmd.arg("--verifier=boogie").args(user_flags).arg(String::from("--entry-points=") + entry).arg(bcfile);
+    cmd.arg("--verifier=boogie")
+        .args(user_flags)
+        .arg(String::from("--entry-points=") + entry)
+        .arg(bcfile);
     let (stdout, stderr, _) = cmd.output_info_ignore_exit(&opt, Verbosity::Major)?;
 
     // Scan for result mesage
@@ -64,9 +67,9 @@ fn run(opt: &Opt, name: &str, entry: &str, bcfile: &Path, out_dir: &Path) -> CVR
         .chain(stdout.lines())
         .find_map(|l| {
             if l.starts_with("SMACK found no errors") {
-		Some(Status::Verified)
-	    } else if l.starts_with("SMACK found an error") {
-		Some(Status::Error)
+                Some(Status::Verified)
+            } else if l.starts_with("SMACK found an error") {
+                Some(Status::Error)
             } else {
                 None
             }
