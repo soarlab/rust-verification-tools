@@ -40,10 +40,6 @@ pub use smack::*;
 pub fn verifier_nondet_bytes(n: usize) -> Vec<u8> {
     let mut v: Vec<u8> = Vec::with_capacity(n);
     v.resize_with(n, || VerifierNonDet::verifier_nondet(0u8));
-/// Allocate a symbolic vector of bytes
-pub fn verifier_nondet_bytes(n: usize) -> Vec<u8> {
-    let mut v: Vec<u8> = Vec::with_capacity(n);
-    v.resize_with(n, || VerifierNonDet::verifier_nondet(0u8));
     return v;
 }
 

@@ -22,9 +22,9 @@ fn seahorn() {
 
 #[cfg(feature = "verifier-smack")]
 fn smack() {
-    println!("cargo:rerun-if-changed=/home/marksb/smack/smack-install/share/smack/lib/smack-rust.c");
+    println!("cargo:rerun-if-changed=lib/smack-rust.c");
     cc::Build::new()
-        .file("/home/marksb/smack/smack-install/share/smack/lib/smack-rust.c")
+        .file("lib/smack-rust.c")
         .define("CARGO_BUILD", None)
         .compile("smack");
 }
