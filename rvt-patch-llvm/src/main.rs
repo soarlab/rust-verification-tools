@@ -168,6 +168,14 @@ fn main() {
             &module,
             &Regex::new(r"^__VERIFIER_nondet_[iu]\d+$").unwrap(),
         );
+        replace_def_with_dec(
+            &module,
+            &Regex::new(r"^_ZN3std2io5stdio7_eprint17h[a-f0-9]{16}E$").unwrap(),
+        );
+        replace_def_with_dec(
+            &module,
+            &Regex::new(r"^_ZN3std2io5stdio6_print17h[a-f0-9]{16}E$").unwrap(),
+        );
     }
 
     // Write output file

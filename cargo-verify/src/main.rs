@@ -739,6 +739,14 @@ fn get_build_envs(opt: &Opt) -> CVResult<Vec<(String, String)>> {
         rustflags.push_str(" -Clink-arg=-Wl,--defsym=klee_is_symbolic=0");
     }
 
+    if opt.backend == Backend::Smack {
+	// Flags for compiling for smack
+	rustflags.push_str(" -Copt-level=0");
+	rustflags.push_str(" -Cno-prepopulate-passes");
+	rustflags.push_str(" -g");
+	rustflags.push_str(" -Cpasses=name-anon-globals");
+    }
+
     match std::env::var_os("RUSTFLAGS") {
         Some(env) => {
             rustflags.push_str(" ");

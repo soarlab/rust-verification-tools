@@ -45,38 +45,7 @@ pub fn verify(opt: &Opt, name: &str, entry: &str, bcfile: &Path) -> CVResult<Sta
     run(&opt, &name, &entry, &bcfile, &out_dir)
 }
 
-/// Return an int indicating importance of a line from KLEE's output
-/// Low numbers are most important, high numbers least important
-///
-/// -1: script error (always shown)
-/// 1: brief description of error
-/// 2: long details about an error
-/// 3: warnings
-/// 4: non-Seahorn output
-/// 5: any other Seahorn output
-fn importance(line: &str, expect: &Option<&str>, name: &str) -> i8 {
-    if line.starts_with("VERIFIER_EXPECT:") {
-        4
-    } else if line == "sat" {
-        1
-    } else if line.starts_with("Warning: Externalizing function:")
-        || line.starts_with("Warning: not lowering an initializer for a global struct:")
-        || (line.starts_with("Warning: found")
-            && line.ends_with("possible reads of undefined values"))
-    {
-        4
-    } else if backends_common::is_expected_panic(&line, &expect, &name) || line == "unsat" {
-        5
-    } else if line.starts_with("Warning:") {
-        // Really high priority to force me to categorize it
-        0
-    } else {
-        // Remaining output is probably output from the application, stack dumps, etc.
-        3
-    }
-}
-
-/// Run Seahorn and analyse its output.
+/// Run Smack and analyse its output.
 fn run(opt: &Opt, name: &str, entry: &str, bcfile: &Path, out_dir: &Path) -> CVResult<Status> {
     let mut cmd = Command::new("smack");
 
@@ -86,62 +55,18 @@ fn run(opt: &Opt, name: &str, entry: &str, bcfile: &Path, out_dir: &Path) -> CVR
         .map(|flag| backends_common::format_flag(&flag, &entry, &bcfile, &out_dir))
         .collect::<Result<_, _>>()?;
 
-    // if !opt.replace_backend_flags {
-    //     cmd.arg("yama")
-    //         .arg("-y")
-    //         .arg(format!("{}/seahorn/sea_base.yaml", verify_common_dir))
-    //         .arg("bpf")
-    //         .arg(OsString::from("--temp-dir=").append(out_dir))
-    //         .arg(String::from("--entry=") + entry)
-    //         .args(user_flags)
-    //         .arg(&bcfile);
-    // } else {
-    //     cmd.args(user_flags);
-    // }
     cmd.arg("--verifier=boogie").args(user_flags).arg(String::from("--entry-points=") + entry).arg(bcfile);
     let (stdout, stderr, _) = cmd.output_info_ignore_exit(&opt, Verbosity::Major)?;
-    for l in stdout.lines() {
-	println!("{}", l);
-    }
 
-    // We scan stderr for:
-    // 1. Indications of the expected output (eg from #[should_panic])
-    // 2. Indications of success/failure
-    // 3. Information relevant at the current level of verbosity
-    // 4. Statistics
-
-    // Scan for expectation message
-    let mut expect = None;
-    for l in stderr.lines() {
-	println!("{}",l);
-        if l == "VERIFIER_EXPECT: should_panic" {
-            expect = Some("");
-        } else if let Some(e) = l
-            .strip_prefix("VERIFIER_EXPECT: should_panic(expected = \"")
-            .and_then(|l| l.strip_suffix("\")"))
-        {
-            info!("Expecting '{}'", e);
-            expect = Some(e);
-        }
-    }
-
-    // Scan for first message that indicates result
+    // Scan for result mesage
     let status = stderr
         .lines()
         .chain(stdout.lines())
         .find_map(|l| {
-            if l.starts_with("VERIFIER_EXPECT:") {
-                // don't confuse this line with an error!
-                None
-            } else if backends_common::is_expected_panic(&l, &expect, &name) {
-                Some(Status::Verified)
-            } else if l == "sat" {
-                Some(Status::Error)
-            } else if l == "unsat" {
-                match expect {
-                    None => Some(Status::Verified),
-                    _ => Some(Status::Error),
-                }
+            if l.starts_with("SMACK found no errors") {
+		Some(Status::Verified)
+	    } else if l.starts_with("SMACK found an error") {
+		Some(Status::Error)
             } else {
                 None
             }
@@ -150,20 +75,6 @@ fn run(opt: &Opt, name: &str, entry: &str, bcfile: &Path, out_dir: &Path) -> CVR
             warn!("Unable to determine status of {}", name);
             Status::Unknown
         });
-
-    info!(
-        "Status: '{}' expected: '{}'",
-        status,
-        expect.unwrap_or("---")
-    );
-
-    // TODO: Scan for statistics
-
-    for l in stderr.lines() {
-        if importance(&l, &expect, &name) < opt.verbose as i8 {
-            println!("{}", l);
-        }
-    }
 
     Ok(status)
 }
